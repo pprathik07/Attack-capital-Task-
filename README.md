@@ -8,19 +8,17 @@ Built for **SaaS companies, agencies, and sales teams** who want to scale outbou
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
-- [Workflow Architecture](#workflow-architecture)
-- [Prerequisites](#prerequisites)
-- [API Setup Guide](#api-setup-guide)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Usage](#usage)
-- [Workflow Breakdown](#workflow-breakdown)
-- [Customization](#customization)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+- [Overview](#Overview)
+- [Features](#Features)
+- [Workflow Architecture](#Workflow-architecture)
+- [Prerequisites](#Prerequisites)
+- [API Setup Guide](#Api-setup-guide)
+- [Installation](#Installation)
+- [Configuration](#Configuration)
+- [Usage](#Usage)
+- [Workflow Breakdown](#Workflow-breakdown)
+- [Customization](#Customization)
+- [Troubleshooting](#Troubleshooting)
 
 ---
 
