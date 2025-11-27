@@ -474,10 +474,7 @@ Edit **Filter Competitors & Deduplicate** to:
 ---
 
 ## 📧 Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/attack-capital/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/attack-capital/discussions)
-- **Email**: your.email@example.com
+- **Email**: p.prathikreddy7@example.com
 
 ---
 
