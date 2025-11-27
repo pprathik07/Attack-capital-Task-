@@ -22,7 +22,7 @@ Built for **SaaS companies, agencies, and sales teams** who want to scale outbou
 
 ---
 
-## 🎯 Overview
+## Overview
 
 **Attack Capital** automates the entire B2B lead generation process:
 
@@ -36,7 +36,7 @@ Perfect for: Sales teams, marketing agencies, growth hackers, and B2B startups l
 
 ---
 
-## ✨ Features
+## Features
 
 -  **Multi-Source Lead Scraping** - Pulls companies from Clutch, DesignRush, and Google Search
 -  **Smart Competitor Filtering** - Automatically removes competitors (Aircall, Close.com, etc.) and deduplicates
