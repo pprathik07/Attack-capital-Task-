@@ -40,14 +40,14 @@ Perfect for: Sales teams, marketing agencies, growth hackers, and B2B startups l
 
 ## ✨ Features
 
-- 🔍 **Multi-Source Lead Scraping** - Pulls companies from Clutch, DesignRush, and Google Search
-- 🎯 **Smart Competitor Filtering** - Automatically removes competitors (Aircall, Close.com, etc.) and deduplicates
-- 📧 **Decision-Maker Email Enrichment** - Finds verified emails for CEOs, Founders, VPs, Directors
-- 🤖 **AI-Powered Personalization** - Google Gemini generates custom backlink partnership emails
-- 📨 **Automated Gmail Drafts** - Creates ready-to-send drafts in your Gmail account
-- 📊 **Google Sheets Integration** - Logs all enriched data for tracking and analytics
-- ⏱️ **Rate Limiting** - Built-in delays to respect API limits
-- 🔄 **Batch Processing** - Handles multiple companies in parallel
+-  **Multi-Source Lead Scraping** - Pulls companies from Clutch, DesignRush, and Google Search
+-  **Smart Competitor Filtering** - Automatically removes competitors (Aircall, Close.com, etc.) and deduplicates
+-  **Decision-Maker Email Enrichment** - Finds verified emails for CEOs, Founders, VPs, Directors
+-  **AI-Powered Personalization** - Google Gemini generates custom backlink partnership emails
+-  **Automated Gmail Drafts** - Creates ready-to-send drafts in your Gmail account
+-  **Google Sheets Integration** - Logs all enriched data for tracking and analytics
+-  **Rate Limiting** - Built-in delays to respect API limits
+-  **Batch Processing** - Handles multiple companies in parallel
 
 ---
 
@@ -102,6 +102,11 @@ Perfect for: Sales teams, marketing agencies, growth hackers, and B2B startups l
                     ┌─────────▼─────────┐
                     │  Create Gmail     │
                     │  Drafts           │
+                    └─────────┬─────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │  Creates Sheets   │
+                    │  Data             │
                     └───────────────────┘
 ```
 
@@ -460,31 +465,6 @@ Edit **Filter Competitors & Deduplicate** to:
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! Here's how:
-```bash
-# 1. Fork the repository
-# 2. Create a feature branch
-git checkout -b feature/amazing-feature
-
-# 3. Commit your changes
-git commit -m 'Add amazing feature'
-
-# 4. Push to the branch
-git push origin feature/amazing-feature
-
-# 5. Open a Pull Request
-```
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
 ## 🙏 Acknowledgments
 
 - Built with [n8n](https://n8n.io) - Fair-code workflow automation
@@ -501,6 +481,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ by [Your Name]**
+**Made with passion by [Prathik]**
 
 ⭐ Star this repo if you find it helpful!
