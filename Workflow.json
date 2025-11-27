@@ -1,0 +1,1055 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "edf80b29-c413-455e-a25f-5b97930633a4",
+      "name": "Start Workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.apify.com/v2/acts/curious_coder~clutch-scraper/runs/last/dataset/items?token=[YOUR_APIFY_API]",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "apifyApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $credentials.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a739685b-a46d-4645-b877-145163bb4c84",
+      "name": "Source A: Clutch Directory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        -112
+      ],
+      "credentials": {
+        "apifyApi": {
+          "id": "8PswpSxLGihzO8WN",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.apify.com/v2/acts/dionysus_way~designrush-agency-scraper/runs/last/dataset/items?token==[YOUR_APIFY_API_FROM_ACTOR]",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "apifyApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $credentials.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "166d27af-bc8c-409d-b4aa-387d7fe86e01",
+      "name": "Source B: DesignRush",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        80
+      ],
+      "credentials": {
+        "apifyApi": {
+          "id": "8PswpSxLGihzO8WN",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "queries",
+              "name": "queries",
+              "value": "=['outbound sales blog', 'SaaS sales strategies', 'cold calling best practices']",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7321b68c-ccd4-4f9c-8c4d-b05f90ea0bd5",
+      "name": "Set Search Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        -608,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "id": "1b7b3ccb-79d3-47b1-99a2-787760fbb422",
+      "name": "Wait Between Searches",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        512,
+        272
+      ],
+      "webhookId": "wait-webhook"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "0c6807e9-940c-4dde-958c-398014adb34a",
+      "name": "Merge All Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        736,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Comprehensive competitor filtering and deduplication\nconst competitors = [\n  'aircall', 'justcall', 'close.com', 'close.io', 'dialpad',\n  'cloudtalk', 'phoneburner', 'ringcentral', 'talkdesk',\n  'nextiva', 'vonage', '8x8', 'grasshopper', 'aloware',\n  'kixie', 'salesdial', 'callhub', 'callingio', 'powerdialer'  // ✅ Added\n];\n\nconst items = $input.all();\nconst uniqueCompanies = new Map();\nconst filtered = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Determine source type\n  const isClutch = data.hasOwnProperty('logoUrl') || data.hasOwnProperty('title');\n  const isDesignRush = data.hasOwnProperty('agencyId') || data.hasOwnProperty('name');\n  const isGoogleSearch = data.source === 'Google Search';  // ✅ NEW\n  \n  // Extract website/URL and company name\n  let website = '';\n  let companyName = '';\n  let originalSource = 'Unknown';  // ✅ NEW: Track original source\n  \n  if (isClutch) {\n    website = data.website || '';\n    companyName = data.title || '';\n    originalSource = 'Clutch Directory';  // ✅ NEW\n  } else if (isDesignRush) {\n    website = data.website || '';\n    companyName = data.name || '';\n    originalSource = 'DesignRush';  // ✅ NEW\n  } else if (isGoogleSearch) {  // ✅ NEW\n    website = data.website || '';\n    companyName = data.company_name || '';\n    originalSource = 'Google Search';\n  }\n  \n  // Skip if no website\n  if (!website) {\n    console.log(`Skipped: No website found for ${companyName || 'Unknown'}`);\n    continue;\n  }\n  \n  const url = website.toLowerCase();\n  const name = companyName.toLowerCase();\n  \n  // Check for competitors\n  const isCompetitor = competitors.some(comp => \n    url.includes(comp) || name.includes(comp)\n  );\n  \n  if (isCompetitor) {\n    console.log(`Filtered out competitor: ${companyName}`);\n    continue;\n  }\n  \n  // Extract domain for deduplication\n  let domain = '';\n  try {\n    domain = new URL(website).hostname.replace('www.', '');\n  } catch (e) {\n    domain = website.replace(/^https?:\\/\\/(www\\.)?/, '').split('/')[0];\n  }\n  \n  // Deduplicate by domain (keep first occurrence)\n  if (!uniqueCompanies.has(domain)) {\n    uniqueCompanies.set(domain, true);\n    \n    // Extract services array (Clutch format only)\n    let services = [];\n    if (data.services && Array.isArray(data.services)) {\n      services = data.services.map(s => ({\n        service: s.service || null,\n        percentage: s.percentage || null\n      }));\n    }\n    \n    // Unified output structure with all fields\n    const unifiedData = {\n      // Source identification - ✅ PRESERVE ORIGINAL SOURCE\n      source: originalSource,\n      \n      // Company basics\n      company_name: companyName,\n      website: website,\n      domain: domain,\n      \n      // Contact information\n      email: data.email || null,\n      \n      // Location\n      location: data.location || null,\n      \n      // Company details\n      description: data.description || null,\n      tagline: data.tagline || null,\n      founded: data.founded || null,\n      team_size: data.employeeCount || data.teamSize || null,\n      \n      // Pricing\n      hourly_rate: data.hourlyRate || null,\n      min_budget: data.minProjectSize || data.minBudget || null,\n      \n      // Ratings & Reviews\n      rating: data.rating || null,\n      review_count: data.reviewCount || null,\n      is_verified: data.isVerified || null,\n      is_featured: data.isFeatured || null,\n      \n      // Profile URLs\n      profile_url: data.profileUrl || null,\n      logo_url: data.logoUrl || data.logo || null,\n      \n      // Services\n      services: services,\n      services_text: data.servicesText || null,\n      \n      // Industries\n      industries_text: data.industriesText || null,\n      \n      // Social media\n      facebook: data.facebook || null,\n      linkedin: data.linkedin || null,\n      twitter: data.twitter || null,\n      instagram: data.instagram || null,\n      \n      // Portfolio & clients\n      portfolio_count: data.portfolioCount || null,\n      clients_text: data.clientsText || null,\n      awards_text: data.awardsText || null,\n      \n      // Additional metadata\n      ranking: data.ranking || null,\n      source_url: data.sourceUrl || null,\n      extracted_at: data.extractedAt || null,\n      \n      // Status\n      status: 'pending_enrichment',\n      found_date: new Date().toISOString()\n    };\n    \n    filtered.push({\n      json: unifiedData\n    });\n  } else {\n    console.log(`Duplicate domain skipped: ${domain}`);\n  }\n}\n\nconsole.log(`Filtered: ${items.length} → ${filtered.length} companies`);\nreturn filtered;"
+      },
+      "id": "61941219-be10-4d23-acd2-72af4b6cb204",
+      "name": "Filter Competitors & Deduplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "c9638a99-5fab-49d9-abb7-1fa8ad64b036",
+      "name": "Wait Between Enrichments",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3200,
+        80
+      ],
+      "webhookId": "enrichment-wait"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1XAXQd__L4OGMEoa6ar6sPvDdKJ4BS9dqA3z97B70H98/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XAXQd__L4OGMEoa6ar6sPvDdKJ4BS9dqA3z97B70H98/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Personalized Email Copy ": "={{ $json.subject }} and\n\n{{ $json.body }}",
+            "row_number": 0,
+            "Company Name ": "={{ $('Append to Google Sheet1').item.json[\"Company Name \"] }}"
+          },
+          "matchingColumns": [
+            "Company Name "
+          ],
+          "schema": [
+            {
+              "id": "Company Name ",
+              "displayName": "Company Name ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company URL",
+              "displayName": "Company URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Source ",
+              "displayName": "Source ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Contact Name ",
+              "displayName": "Contact Name ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Contact Role ",
+              "displayName": "Contact Role ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email ",
+              "displayName": "Email ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "LinkedIn ",
+              "displayName": "LinkedIn ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Personalized Email Copy ",
+              "displayName": "Personalized Email Copy ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "2bb48dea-4e6d-4098-a959-296720c106ff",
+      "name": "Append to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        4672,
+        -16
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rvma8skbSZBmfPSn",
+          "name": "AC-task"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/customsearch/v1?key={CREATE_GEMINI_API}&q={{ encodeURIComponent($json.query) }}",
+        "options": {}
+      },
+      "id": "bd61f9fd-1409-4b69-98c3-eb23ccdd486b",
+      "name": "Google Search: SaaS Blogs1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        64,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "maxItems": 50
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        80
+      ],
+      "id": "13c42c03-f6ab-40a0-826d-fc3ac1e294ed",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# SYSTEM PROMPT: Backlink Partnership Email Generator for PowerDialer.ai\n\n## YOUR ROLE\nYou are a content partnership specialist writing on behalf of PowerDialer.ai, an AI-powered cold calling platform for B2B sales teams. Your goal is to craft personalized backlink partnership proposals that offer genuine value through content collaboration.\n\n## ABOUT POWERDIAILER.AI (USE THIS CONTEXT)\nPowerDialer.ai is an AI-based cold calling platform designed for:\n- SaaS companies\n- Professional services firms\n- Insurance agencies\n- Real estate companies\n- Consulting firms\n- HVAC companies\n- Mortgage companies\n- Pest control businesses\n\nThe platform helps sales teams automate and scale outbound calling operations using AI technology.\n\n**Website:** https://powerdialer.ai\n\n## CORE PRINCIPLES\n\n### 1. PARTNERSHIP, NOT SALES\n- You are NOT selling PowerDialer.ai's services\n- You ARE proposing a mutually beneficial content collaboration\n- Focus on how both parties benefit from cross-promotion\n- This is peer-to-peer outreach between content teams\n\n### 2. VALUE-FIRST APPROACH\n- Offer to create original, high-quality content for THEIR blog\n- Content should be relevant to THEIR audience\n- Position it as \"we'll feature you, you feature us\"\n- Make the value proposition crystal clear\n\n### 3. PERSONALIZATION REQUIREMENTS\n- Reference their company name and what they do\n- Show you've researched their blog/content (if applicable)\n- Tailor blog title suggestions to their industry/audience\n- Use their contact name and role appropriately\n\n### 4. PROFESSIONAL BUT COLLABORATIVE TONE\n- Friendly and approachable, not corporate or stiff\n- Respectful of their time (keep it concise)\n- Collaborative language: \"partnership,\" \"collaborate,\" \"mutual benefit\"\n- No hard selling or pushy CTAs\n\n## EMAIL STRUCTURE (MANDATORY FORMAT)\n\n### Subject Line Rules:\n- 4-8 words maximum\n- Mention \"content partnership,\" \"guest post,\" or \"backlink collaboration\"\n- Include company name for personalization\n- Examples:\n  - \"Content partnership idea for [Company]\"\n  - \"Guest post collaboration with PowerDialer.ai\"\n  - \"[Company] + PowerDialer content swap?\"\n\n### Body Structure:\n1. **Greeting** (use first name if available, otherwise \"Hi [Name]\" or \"Hello\")\n\n2. **Introduction** (2-3 sentences):\n   - Briefly introduce yourself and PowerDialer.ai\n   - Mention what their company does (show research)\n   - State your purpose: content partnership/backlink exchange\n\n3. **Value Proposition** (2-3 sentences):\n   - Offer to write original content for their blog\n   - Explain relevance to their audience\n   - Mention you'll feature them in a reciprocal post on PowerDialer.ai's blog\n\n4. **Blog Title Suggestions** (present 2 specific titles):\n   - Tailor suggestions to their industry and audience\n   - Make titles actionable and relevant\n   - Use current year (2024 or 2025)\n   - Examples format:\n     * \"Here are two topics we think would resonate with your audience:\n       1. [Title 1]\n       2. [Title 2]\"\n\n5. **Soft CTA** (1-2 sentences):\n   - Ask if they're open to discussing further\n   - Keep it low-pressure\n   - Suggest a quick call or email exchange\n\n6. **Sign-off**:\n   - \"Best regards,\" \"Cheers,\" or \"Looking forward to connecting,\"\n   - Use sender name: \"The PowerDialer.ai Team\" or specific name if provided\n\n**Total Length:** 100-150 words (excluding greeting/sign-off)\n\n## BLOG TITLE GENERATION GUIDELINES\n\n### Title Formula:\n[Number] + [Action/Benefit] + [Target Audience] + [Year/Timeframe]\n\n### Good Examples:\n- \"10 Cold Calling Scripts That Convert for B2B SaaS Teams\"\n- \"How AI is Transforming Outbound Sales in 2025\"\n- \"The Ultimate Guide to Building a High-Velocity Sales Team\"\n- \"7 Proven Strategies to Reduce No-Show Rates in Sales Calls\"\n- \"Why Remote Sales Teams Need AI-Powered Calling Tools\"\n- \"Cold Calling vs. Warm Outreach: What Works Better in 2025?\"\n\n### Industry-Specific Title Ideas:\n\n**For SaaS/Sales Companies:**\n- \"How to Scale Your SDR Team Without Sacrificing Quality\"\n- \"AI-Powered Sales: Tools Every B2B Team Needs in 2025\"\n\n**For Marketing Agencies:**\n- \"How to Integrate Cold Calling into Your Lead Gen Strategy\"\n- \"Content Marketing + Cold Calling: The Winning Combo\"\n\n**For Consulting Firms:**\n- \"How Consultants Can Use AI Tools to Win More Clients\"\n- \"Modern Prospecting Strategies for Professional Services\"\n\n**For Real Estate/Insurance:**\n- \"How AI is Changing the Game for Insurance Sales Teams\"\n- \"10 Cold Calling Tips for Real Estate Agents in 2025\"\n\n**Always customize titles based on the recipient's industry and audience.**\n\n## WHAT TO NEVER INCLUDE\n\n❌ Selling PowerDialer.ai's features or pricing\n❌ Aggressive sales language or urgency tactics\n❌ Generic templates that don't reference their company\n❌ Multiple CTAs or questions\n❌ Attachments or links in first email (just mention your website)\n❌ Overly formal legal/corporate language\n❌ Desperate or pushy tone\n\n## INPUT DATA YOU'LL RECEIVE\n\nYou will receive a JSON object with these fields:\n```json\n{\n  \"Company Name \": \"string\",\n  \"Company URL\": \"string\",\n  \"Source \": \"string\",\n  \"Contact Name \": \"string\",\n  \"Contact Role \": \"string\",\n  \"LinkedIn \": \"string\",\n  \"Email \": \"string\",\n  \"Phone number\": \"string\"\n}\n```\n\n## YOUR TASK - STEP BY STEP\n\n### STEP 1: ANALYZE THE CONTACT\n1. Identify their role (Founder, CEO, Content Manager, Marketing Director, etc.)\n2. Research their company based on URL/name\n3. Determine their industry (SaaS, consulting, agency, etc.)\n4. Assess what content would resonate with THEIR audience\n\n### STEP 2: DETERMINE CONTENT ANGLE\nBased on their industry, select relevant blog angles:\n\n**SaaS/Sales Companies:**\n- Focus on sales productivity, AI tools, scaling teams\n- Angle: How PowerDialer.ai fits into modern sales stacks\n\n**Marketing Agencies:**\n- Focus on lead generation, multi-channel strategies\n- Angle: Integrating cold calling with digital marketing\n\n**Consulting/Professional Services:**\n- Focus on client acquisition, efficiency, tools\n- Angle: Modern prospecting for consultants\n\n**Other Industries (Insurance, Real Estate, HVAC, etc.):**\n- Focus on industry-specific sales challenges\n- Angle: AI tools for [their industry] sales teams\n\n### STEP 3: CRAFT THE EMAIL\n1. Write personalized subject line with their company name\n2. Use appropriate greeting (first name if available)\n3. Introduce PowerDialer.ai and acknowledge their company\n4. Clearly state the partnership proposal\n5. Suggest 2 blog titles tailored to their audience\n6. End with soft, collaborative CTA\n7. Professional sign-off\n\n### STEP 4: QUALITY CHECK\nBefore finalizing, verify:\n- ✅ Is their company name mentioned?\n- ✅ Are the blog titles relevant to THEIR audience?\n- ✅ Is this about partnership, not sales?\n- ✅ Is it 100-150 words (concise)?\n- ✅ Would a busy content manager find this appealing?\n- ✅ Does it offer clear mutual value?\n\n## EXAMPLE OUTPUTS (STUDY THESE)\n\n### Example 1: SaaS Founder\nSubject: Content collaboration idea for [Company]\nHi Sarah,\nI'm reaching out from PowerDialer.ai, an AI-powered cold calling platform for B2B sales teams. I've been following [Company]'s work in the sales automation space and think there's a great opportunity for a content partnership.\nWe'd love to write a guest post for your blog that would resonate with your audience, and in return, we'd feature [Company] in a reciprocal post on our blog—complete with backlinks to both sites.\nHere are two topics we think would work well for your readers:\n\n\"How to Build a Predictable Outbound Sales Pipeline in 2025\"\n\"AI-Powered Sales Tools: What Every B2B Team Needs to Know\"\n\nWould you be open to exploring this? Happy to jump on a quick call or continue via email—whatever works best.\nBest regards,\nThe PowerDialer.ai Team\n\n### Example 2: Marketing Agency Director\nSubject: Guest post swap with PowerDialer.ai?\nHi James,\nI came across [Company] while researching top marketing agencies focused on B2B lead generation—impressive client results!\nI'm with PowerDialer.ai, an AI cold calling platform, and we're looking to collaborate with agencies like yours on content partnerships. We'd write an original article for your blog (with your editorial input), and you'd do the same for ours—both with backlinks.\nTwo ideas tailored for your audience:\n\n\"How to Integrate Cold Calling into Your Digital Lead Gen Strategy\"\n\"Why Modern Marketing Agencies Are Adding AI Calling Tools to Their Stack\"\n\nInterested in exploring this further? Let me know if a brief call works, or we can hash out details over email.\nCheers,\nThe PowerDialer.ai Team\n\n### Example 3: Consulting Firm Founder\nSubject: Partnership idea for [Company] blog\nHello Michael,\nPowerDialer.ai here—we're an AI-powered cold calling platform helping consultants and professional services firms scale their client acquisition.\nI noticed [Company] has a strong content presence, and I think there's an opportunity for a backlink partnership: we'd write a valuable guest post for your blog, and you'd do the same for ours, with mutual backlinks.\nTwo topics we think your audience would appreciate:\n\n\"Modern Prospecting Strategies for Consulting Firms in 2025\"\n\"How AI Tools Are Helping Consultants Win More High-Value Clients\"\n\nDoes this sound interesting? Happy to discuss further at your convenience.\nBest regards,\nThe PowerDialer.ai Team\n\n## OUTPUT FORMAT\n\nReturn ONLY valid JSON with this exact structure:\n```json\n{\n  \"subject_line\": \"string (4-8 words, includes company name)\",\n  \"email_body\": \"string (complete email including greeting and sign-off)\",\n  \"blog_title_1\": \"string (first suggested blog title)\",\n  \"blog_title_2\": \"string (second suggested blog title)\",\n  \"content_angle\": \"string (SaaS/Agency/Consulting/Industry-specific)\",\n  \"personalization_elements\": \"array of strings (what you personalized: company name, industry, role, etc.)\"\n}\n```\n\n## FINAL REMINDERS\n\n1. **This is PARTNERSHIP outreach, not sales.** Never pitch PowerDialer.ai's features.\n2. **Personalization is key.** Generic emails fail—reference their company specifically.\n3. **Blog titles matter.** Make them relevant, actionable, and tailored to their audience.\n4. **Keep it concise.** Busy content managers delete long emails.\n5. **Mutual value.** Both parties win—make that crystal clear.\n6. **Professional tone.** Friendly but respectful—you're proposing a business collaboration.\n\nYour goal: Generate partnership emails that achieve 20%+ positive response rates from content decision-makers.\n\n---\n\n## INPUTS:\nCompany Name: {{ $json[\"Company Name \"] }}\nCompany URL: {{ $json[\"Company URL\"] }}\nContact Name: {{ $json[\"Contact Name \"] }}\nContact Role: {{ $json[\"Contact Role \"] }}\nLinkedIn: {{ $json[\"LinkedIn \"] }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        4096,
+        80
+      ],
+      "id": "da64b97e-201b-4d63-a1b3-4973e1f6e97d",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        4176,
+        304
+      ],
+      "id": "3835ca68-c7f3-4afa-b04e-9d84e5af941f",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Ux8dTTQdLKPpr0v7",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  output.push({\n    json: {\n      // Company Information\n      company_name: data.company_name || '',\n      company_url: data.company_website || data.company_domain ? `https://${data.company_domain}` : '',\n      source: data.source || 'Apify Email Finder',\n      \n      // Contact Information\n      contact_name: data.contact_name || '',\n      contact_role: data.contact_title || '',\n      email: data.contact_email || '',\n      linkedin: data.linkedin_url || '',\n      \n      // Additional fields from your data\n      contact_phone: data.contact_phone || '',\n      company_domain: data.company_domain || '',\n      contact_number: data.contact_number || '',\n      \n      // Placeholder for email copy (to be generated later)\n      personalized_email_copy: '',\n      \n      // Status tracking\n      final_status: data.contact_email ? 'ready_for_email_generation' : 'incomplete',\n      processed_date: new Date().toISOString(),\n      enriched_date: data.enriched_date || new Date().toISOString().split('T')[0]\n    }\n  });\n}\n\nreturn output;"
+      },
+      "id": "e5e3b901-eaf5-495d-8f55-2259dfa755d1",
+      "name": "Format Final Output1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3424,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1XAXQd__L4OGMEoa6ar6sPvDdKJ4BS9dqA3z97B70H98/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XAXQd__L4OGMEoa6ar6sPvDdKJ4BS9dqA3z97B70H98/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Company Name ": "={{ $json.company_name }}",
+            "Company URL": "={{ $json.company_url }}",
+            "Source ": "={{ $json.source }}",
+            "Contact Name ": "={{ $json.contact_name }}",
+            "Contact Role ": "={{ $json.contact_role }}",
+            "LinkedIn ": "={{ $json.linkedin }}",
+            "Email ": "={{ $json.email }}",
+            "Personalized Email Copy ": "={{ $json.personalized_email_copy }}",
+            "Phone number": "={{ $json.contact_phone }}"
+          },
+          "matchingColumns": [
+            "Company Name "
+          ],
+          "schema": [
+            {
+              "id": "Company Name ",
+              "displayName": "Company Name ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company URL",
+              "displayName": "Company URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source ",
+              "displayName": "Source ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Contact Name ",
+              "displayName": "Contact Name ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Contact Role ",
+              "displayName": "Contact Role ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email ",
+              "displayName": "Email ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone number",
+              "displayName": "Phone number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "LinkedIn ",
+              "displayName": "LinkedIn ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Personalized Email Copy ",
+              "displayName": "Personalized Email Copy ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "bb4f658e-3332-4343-8099-17694c52810d",
+      "name": "Append to Google Sheet1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        3648,
+        80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rvma8skbSZBmfPSn",
+          "name": "AC-task"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        4672,
+        176
+      ],
+      "id": "63bf7201-f219-4ab8-92c2-d17138908d9d",
+      "name": "Create a draft",
+      "webhookId": "bbaca391-7750-405f-828a-60d90e689c72",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TiwKyflgf903YPBo",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "maxItems": 2
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        272
+      ],
+      "id": "83dd89f2-899d-428c-9a12-4789a8e27fc5",
+      "name": "Limit1"
+    },
+    {
+      "parameters": {
+        "maxItems": 20
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        80
+      ],
+      "id": "6ad0fd26-aeed-460f-b8a6-45802ed88ded",
+      "name": "Limit2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/snipercoder~decision-maker-email-finder/run-sync-get-dataset-items?token==[YOUR_APIFY_API_FROM_ACTOR]",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"domain\": \"{{ $json.primary_domain }}\",\n  \"maxResults\": 5\n}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2752,
+        80
+      ],
+      "id": "0b263dbe-1def-43b0-87bb-8c93092f59a6",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/v1/organizations/enrich",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "APOLLO_API-->FROM INTEGRATIONS"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"domain\": \"{{ $json._company_domain }}\"\n}\n",
+        "options": {}
+      },
+      "id": "b2717fdc-f3c9-47d7-8f51-ac57608c7cb8",
+      "name": "Apollo(org-fetch)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2304,
+        80
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "maxItems": 20
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        3872,
+        80
+      ],
+      "id": "54b394b9-6ccb-4914-96e7-7df1b4e99b89",
+      "name": "Limit3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\nconst input = $input.first().json;\nconst results = input.items || [];\n\nfor (const result of results) {\n  let domain = '';\n  try {\n    domain = new URL(result.link).hostname.replace('www.', '');\n  } catch (e) {\n    domain = result.link;\n  }\n  \n  items.push({\n    json: {\n      // MATCH CLUTCH/DESIGNRUSH FIELD NAMES\n      company_name: result.title.split('-')[0].trim(),\n      website: result.link,  // ✅ CHANGED from company_url\n      source: 'Google Search',  // ✅ This will be preserved\n      description: result.snippet,\n      domain: domain,\n      found_date: new Date().toISOString()\n    }\n  });\n}\n\nreturn items;"
+      },
+      "id": "5cca41b1-05b0-41d9-8d56-ad4aa8c388c4",
+      "name": "Parse Search Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  let raw = item.json.output;\n\n  // Remove ```json and ``` wrappers\n  raw = raw.replace(/```json|```/g, '').trim();\n\n  // Parse inner JSON\n  const parsed = JSON.parse(raw);\n\n  // Add extracted subject & body to output\n  return {\n    json: {\n      subject: parsed.subject_line,\n      body: parsed.email_body\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4448,
+        80
+      ],
+      "id": "d745c2c7-6a08-4458-9cb7-946fba7db3c5",
+      "name": "Parse AI Email Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\nconst seenEmails = new Set();\nconst companiesMap = {};\n\n// Decision-maker titles\nconst DECISION_MAKER_TITLES = [\n  'ceo', 'chief executive', 'founder', 'co-founder', 'owner',\n  'president', 'cto', 'cfo', 'cmo', 'coo', 'cro', \n  'managing director', 'vp', 'vice president', \n  'director', 'head of', 'partner', 'content manager', \n  'seo manager', 'marketing manager', 'content director'\n];\n\nfunction isDecisionMaker(title) {\n  const titleLower = (title || '').toLowerCase();\n  return DECISION_MAKER_TITLES.some(role => titleLower.includes(role));\n}\n\n// Group contacts by company\nfor (const item of items) {\n  const data = item.json;\n  \n  if (!data['01_Name'] || !data['04_Email']) {\n    continue;\n  }\n  \n  const email = data['04_Email'].toLowerCase();\n  const domain = data['17_Query_domain'] || '';\n  const title = data['07_Title'] || '';\n  \n  // FILTER: Only keep decision makers\n  if (!isDecisionMaker(title)) {\n    console.log(`Skipped non-decision-maker: ${data['01_Name']} (${title})`);\n    continue;\n  }\n  \n  // Skip duplicate emails\n  if (seenEmails.has(email)) {\n    continue;\n  }\n  seenEmails.add(email);\n  \n  // Initialize company if not exists\n  if (!companiesMap[domain]) {\n    companiesMap[domain] = {\n      company_name: data['16_Company_name'] || '',\n      company_domain: domain,\n      company_website: domain ? `https://${domain}` : '',\n      contacts: []\n    };\n  }\n  \n  // Limit to 3 decision-makers per company\n  if (companiesMap[domain].contacts.length >= 3) {\n    continue;\n  }\n  \n  companiesMap[domain].contacts.push({\n    name: data['01_Name'],\n    email: data['04_Email'],\n    title: title,\n    linkedin: data['06_Linkedin_url'],\n    phone: data['05_Phone_number']\n  });\n}\n\n// Convert to flat array\nfor (const [domain, company] of Object.entries(companiesMap)) {\n  for (let i = 0; i < company.contacts.length; i++) {\n    const contact = company.contacts[i];\n    \n    output.push({\n      json: {\n        company_name: company.company_name,\n        company_domain: company.company_domain,\n        company_website: company.company_website,\n        contact_number: i + 1,\n        contact_name: contact.name,\n        contact_email: contact.email,\n        contact_title: contact.title,\n        contact_phone: contact.phone || '',\n        linkedin_url: contact.linkedin || '',\n        source: 'Apify Email Finder',\n        enriched_date: new Date().toISOString().split('T')[0]\n      }\n    });\n  }\n}\n\nconsole.log(`✅ Found ${output.length} decision-maker contacts from ${Object.keys(companiesMap).length} companies`);\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2976,
+        80
+      ],
+      "id": "7841b870-343a-4671-8064-b2cdd6a4c0c6",
+      "name": "Filter Decision-Makers"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst output = [];\n\nfor (const item of items) {\n  if (item.json.organization) {\n    const org = item.json.organization;\n    \n    output.push({\n      json: {\n        // Organization data\n        organization_id: org.id,\n        organization_name: org.name,\n        primary_domain: org.primary_domain,\n        website_url: org.website_url,\n        linkedin_url: org.linkedin_url,\n        phone: org.phone,\n        location: `${org.city}, ${org.state}, ${org.country}`,\n        industry: org.industry,\n        employee_count: org.estimated_num_employees,\n        \n        // For next API call\n        search_domain: org.primary_domain\n      }\n    });\n  }\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        80
+      ],
+      "id": "9130587a-626f-42b1-9d20-fd7fca934287",
+      "name": "Extract Apollo Org's Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map((item, index) => {\n  const data = item.json;\n\n  // If _company_data exists\n  const companyData = data._company_data || data;\n\n  // Always extract company website and clean it\n  let website = companyData.website || companyData._company_website || '';\n  // Remove tracking params if present\n  website = typeof website === 'string' ? website.split('?')[0] : '';\n\n  return {\n    json: {\n      // Company info\n      _company_name: companyData.company_name || companyData._company_name || '',\n      _company_website: website,\n      _company_domain: companyData.domain || companyData._company_domain || '',\n      _company_profile_url: companyData.profile_url || companyData._company_profile_url || '',\n      _source: companyData.source || companyData._source || '',\n\n      // Contact info\n      contact_name: data.contact_name || null,\n      contact_email: data.contact_email || null,\n      contact_phone: data.contact_phone || null,\n      linkedin: data.linkedin || null,\n\n      // Useful search string for further enrichment\n      linkedin_search_query: `${companyData.company_name || companyData._company_name || ''} founder OR CEO site:linkedin.com`\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        80
+      ],
+      "id": "24f0f5ef-c359-4834-9642-08ba3f46e7f2",
+      "name": "Prepare for Apollo Enrichment"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store original company data including source\nconst items = $input.all();\nconst output = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  output.push({\n    json: {\n      // Store ALL original company data\n      _company_data: {\n        source: data.source,  // ✅ This is now correct: 'Clutch Directory', 'DesignRush', or 'Google Search'\n        company_name: data.company_name,\n        website: data.website,\n        domain: data.domain,\n        email: data.email,\n        location: data.location,\n        description: data.description,\n        tagline: data.tagline,\n        founded: data.founded,\n        team_size: data.team_size,\n        hourly_rate: data.hourly_rate,\n        min_budget: data.min_budget,\n        rating: data.rating,\n        review_count: data.review_count,\n        is_verified: data.is_verified,\n        profile_url: data.profile_url,\n        logo_url: data.logo_url,\n        services: data.services,\n        linkedin: data.linkedin\n      },\n      // Pass LinkedIn URL for API call\n      linkedin: data.linkedin\n    }\n  });\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1632,
+        80
+      ],
+      "id": "8ac64feb-8b3c-4035-a6ea-5ef5c43bedfc",
+      "name": "Store Company Data for Enrichment"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items from previous node\nconst items = $input.all();\nconst filtered = [];\n\nfor (const item of items) {\n  try {\n    const data = item.json;\n    \n    // Extract website - THIS WAS MISSING!\n    const website = data.website || data.domain || '';\n    \n    // Skip if no website\n    if (!website) {\n      console.log(`Skipped: No website found for ${data.company_name || 'Unknown'}`);\n      continue;\n    }\n    \n    // Extract domain for deduplication\n    let domain = '';\n    try {\n      // Try parsing as URL first\n      const urlObj = new URL(website.startsWith('http') ? website : `https://${website}`);\n      domain = urlObj.hostname.replace(/^www\\./i, '');\n    } catch (e) {\n      // Fallback: manual parsing\n      domain = website\n        .replace(/^https?:\\/\\//i, '')  // Remove protocol\n        .replace(/^www\\./i, '')         // Remove www\n        .split('/')[0]                  // Remove path\n        .split('?')[0]                  // Remove query params\n        .trim();                        // Remove whitespace\n    }\n    \n    // Final validation and cleanup\n    domain = domain.toLowerCase();\n    const isValidDomain = /^[a-z0-9.-]+\\.[a-z]{2,}$/.test(domain);\n    \n    // ONLY process if valid domain\n    if (isValidDomain && domain) {\n      // Extract services if they exist\n      let services = [];\n      if (data.services && Array.isArray(data.services)) {\n        services = data.services.map(s => ({\n          service: s.service || null,\n          percentage: s.percentage || null\n        }));\n      }\n      \n      // Create unified output\n      filtered.push({\n        json: {\n          source: data.source || 'Unknown',\n          company_name: data.company_name || '',\n          website: website,\n          domain: domain,\n          email: data.email || null,\n          location: data.location || null,\n          description: data.description || null,\n          tagline: data.tagline || null,\n          founded: data.founded || null,\n          team_size: data.team_size || null,\n          hourly_rate: data.hourly_rate || null,\n          min_budget: data.min_budget || null,\n          rating: data.rating || null,\n          review_count: data.review_count || null,\n          is_verified: data.is_verified || null,\n          is_featured: data.is_featured || null,\n          profile_url: data.profile_url || null,\n          logo_url: data.logo_url || null,\n          services: services,\n          services_text: data.services_text || null,\n          industries_text: data.industries_text || null,\n          facebook: data.facebook || null,\n          linkedin: data.linkedin || null,\n          twitter: data.twitter || null,\n          instagram: data.instagram || null,\n          portfolio_count: data.portfolio_count || null,\n          clients_text: data.clients_text || null,\n          awards_text: data.awards_text || null,\n          ranking: data.ranking || null,\n          source_url: data.source_url || null,\n          extracted_at: data.extracted_at || null,\n          status: 'pending_enrichment',\n          found_date: new Date().toISOString()\n        }\n      });\n    } else {\n      console.log(`⚠️ Invalid domain skipped: \"${domain}\" from ${website}`);\n    }\n    \n  } catch (error) {\n    console.log(`Error processing item: ${error.message}`);\n    // Continue to next item\n  }\n}\n\nconsole.log(`Processed: ${items.length} → ${filtered.length} valid items`);\nreturn filtered;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        80
+      ],
+      "id": "9f82fd18-f2e0-4d1f-9c11-0275db91e18d",
+      "name": "Validate Domains & Clean Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const queries = [\n  'outbound sales blog', \n  'SaaS sales strategies', \n  'cold calling best practices'\n];\n\nreturn queries.map((query, index) => ({\n  json: {\n    query: query,\n    batchIndex: index\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        272
+      ],
+      "id": "197cb9a2-ee27-4803-b6cf-c36e24e56c61",
+      "name": "Generate Search Queries"
+    }
+  ],
+  "connections": {
+    "Start Workflow": {
+      "main": [
+        [
+          {
+            "node": "Set Search Parameters",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Source A: Clutch Directory",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Source B: DesignRush",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source A: Clutch Directory": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Source B: DesignRush": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Set Search Parameters": {
+      "main": [
+        [
+          {
+            "node": "Generate Search Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Between Searches": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge All Sources": {
+      "main": [
+        [
+          {
+            "node": "Filter Competitors & Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Competitors & Deduplicate": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Between Enrichments": {
+      "main": [
+        [
+          {
+            "node": "Format Final Output1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Search: SaaS Blogs1": {
+      "main": [
+        [
+          {
+            "node": "Parse Search Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Validate Domains & Clean Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Email Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Output1": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Google Sheet1": {
+      "main": [
+        [
+          {
+            "node": "Limit3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit1": {
+      "main": [
+        [
+          {
+            "node": "Google Search: SaaS Blogs1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit2": {
+      "main": [
+        [
+          {
+            "node": "Apollo(org-fetch)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Filter Decision-Makers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apollo(org-fetch)": {
+      "main": [
+        [
+          {
+            "node": "Extract Apollo Org's Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit3": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Search Results": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Searches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Email Response": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create a draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Decision-Makers": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Enrichments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Apollo Org's Data": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Apollo Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Limit2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Company Data for Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Prepare for Apollo Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Domains & Clean Data": {
+      "main": [
+        [
+          {
+            "node": "Store Company Data for Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Search Queries": {
+      "main": [
+        [
+          {
+            "node": "Limit1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8951f12877f1ca1b0d55cb9d5814e2cdcbd2ffcbec899e56ea2cc434e498bde1"
+  }
+}
