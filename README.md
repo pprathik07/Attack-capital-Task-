@@ -49,7 +49,7 @@ Perfect for: Sales teams, marketing agencies, growth hackers, and B2B startups l
 
 ---
 
-## 🏗️ Workflow Architecture
+##  Workflow Architecture
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        DATA SOURCES                             │
@@ -110,7 +110,7 @@ Perfect for: Sales teams, marketing agencies, growth hackers, and B2B startups l
 
 ---
 
-## 📋 Prerequisites
+##  Prerequisites
 
 Before you begin, ensure you have:
 
@@ -122,7 +122,7 @@ Before you begin, ensure you have:
 
 ---
 
-## 🔑 API Setup Guide
+## API Setup Guide
 
 ### 1️⃣ Apify API (Web Scraping)
 
@@ -244,7 +244,7 @@ Logs all enriched contacts to a Google Sheet for tracking.
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### Option 1: Import JSON Workflow
 ```bash
@@ -271,7 +271,7 @@ npx n8n
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### 1. Update API Credentials
 
@@ -317,7 +317,7 @@ const competitors = [
 
 ---
 
-## 🚀 Usage
+##  Usage
 
 ### Running the Workflow
 
@@ -343,7 +343,7 @@ After execution, you'll get:
 
 ---
 
-## 🔧 Workflow Breakdown
+##  Workflow Breakdown
 
 ### Stage 1: Data Collection
 
@@ -398,7 +398,7 @@ After execution, you'll get:
 
 ---
 
-## 🎨 Customization
+##  Customization
 
 ### Change Email Template
 
@@ -428,7 +428,7 @@ Edit **Filter Competitors & Deduplicate** to:
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Issue: "API rate limit exceeded"
 
@@ -463,7 +463,7 @@ Edit **Filter Competitors & Deduplicate** to:
 
 ---
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - Built with [n8n](https://n8n.io) - Fair-code workflow automation
 - Powered by [Google Gemini](https://ai.google.dev) for AI email generation
@@ -471,7 +471,7 @@ Edit **Filter Competitors & Deduplicate** to:
 
 ---
 
-## 📧 Support
+##  Support
 - **Email**: p.prathikreddy7@example.com
 
 ---
